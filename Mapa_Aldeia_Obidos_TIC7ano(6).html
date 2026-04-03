@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Nossa Aldeia em Óbidos — TIC 7.º Ano</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'DM Sans',sans-serif; background:#1a1a1a; color:#f0ece4; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+
+header { background:#111; padding:12px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid #c8a84b; flex-shrink:0; }
+header h1 { font-family:'Playfair Display',serif; font-size:18px; color:#f0ece4; }
+header p { font-size:11px; color:#888; margin-top:2px; }
+#total-badge { background:#c8a84b; color:#111; font-size:11px; font-weight:600; padding:4px 12px; border-radius:20px; }
+
+.main { display:flex; flex:1; overflow:hidden; }
+
+.sidebar { width:260px; background:#111; border-right:1px solid #2a2a2a; display:flex; flex-direction:column; flex-shrink:0; overflow:hidden; }
+.turma-tabs { display:flex; border-bottom:1px solid #2a2a2a; }
+.turma-tab { flex:1; padding:10px 2px; text-align:center; cursor:pointer; font-size:11px; font-weight:500; background:transparent; border:none; border-bottom:2px solid transparent; transition:all 0.15s; position:relative; bottom:-1px; }
+.turma-tab.active { border-bottom-color:currentColor !important; }
+
+.sidebar-inner { flex:1; overflow-y:auto; padding:12px; }
+.sidebar-inner::-webkit-scrollbar { width:4px; }
+.sidebar-inner::-webkit-scrollbar-thumb { background:#333; border-radius:2px; }
+
+.zona-label { font-size:10px; font-weight:500; letter-spacing:0.1em; text-transform:uppercase; color:#666; margin-bottom:8px; }
+.prog-bar { height:3px; background:#2a2a2a; border-radius:2px; overflow:hidden; margin:6px 0 4px; }
+.prog-fill { height:100%; border-radius:2px; transition:width 0.4s; }
+.prog-labels { display:flex; justify-content:space-between; font-size:10px; color:#666; }
+
+.lote-grid { display:flex; flex-direction:column; gap:4px; margin-top:12px; }
+.lote-row { display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:6px; cursor:pointer; border:1px solid transparent; transition:all 0.12s; background:#1a1a1a; }
+.lote-row:hover { background:#222; border-color:#333; }
+.lote-row.reservado { background:#1a1500; border-color:#4a3800; }
+.lote-row.concluido { background:#0a1a0a; border-color:#1a4a1a; }
+.lote-dot { width:24px; height:24px; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#111; flex-shrink:0; }
+.lote-info { flex:1; min-width:0; }
+.lote-n { font-size:12px; font-weight:500; color:#f0ece4; }
+.lote-s { font-size:10px; color:#666; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lote-ic { font-size:12px; }
+
+.legenda { padding:12px; border-top:1px solid #2a2a2a; flex-shrink:0; }
+.legenda-t { font-size:9px; font-weight:500; color:#555; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px; }
+.legenda-row { display:flex; align-items:center; gap:6px; margin-bottom:4px; font-size:11px; color:#666; }
+.legenda-dot { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
+
+#map { flex:1; }
+
+.leaflet-popup-content-wrapper { background:#111 !important; border:1px solid #333 !important; border-radius:10px !important; box-shadow:0 8px 32px rgba(0,0,0,0.6) !important; padding:0 !important; color:#f0ece4 !important; }
+.leaflet-popup-content { margin:16px !important; font-family:'DM Sans',sans-serif !important; min-width:230px; }
+.leaflet-popup-tip { background:#111 !important; }
+.leaflet-popup-close-button { color:#666 !important; font-size:16px !important; top:8px !important; right:10px !important; }
+
+.p-head { display:flex; align-items:center; gap:10px; padding-bottom:12px; border-bottom:1px solid #2a2a2a; margin-bottom:12px; }
+.p-num { width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:#111; flex-shrink:0; }
+.p-title { font-size:14px; font-weight:500; color:#f0ece4; }
+.p-sub { font-size:11px; color:#666; margin-top:1px; }
+.p-status { font-size:12px; margin-bottom:10px; }
+.p-par-box { background:#1a1500; border:1px solid #4a3800; border-radius:6px; padding:8px 10px; font-size:12px; color:#c8a84b; margin-bottom:10px; }
+.p-par-box strong { display:block; font-size:10px; color:#666; margin-bottom:2px; }
+.p-inp { width:100%; padding:8px 10px; background:#1a1a1a; border:1px solid #333; border-radius:6px; font-size:12px; font-family:'DM Sans',sans-serif; color:#f0ece4; margin-bottom:6px; outline:none; }
+.p-inp:focus { border-color:#c8a84b; }
+.p-inp::placeholder { color:#444; }
+.p-btn { width:100%; padding:8px; border:none; border-radius:6px; cursor:pointer; font-size:12px; font-weight:500; font-family:'DM Sans',sans-serif; transition:opacity 0.15s; margin-bottom:4px; }
+.p-btn:hover { opacity:0.85; }
+.p-btn.prim { background:#c8a84b; color:#111; }
+.p-btn.suc  { background:#166534; color:#dcfce7; }
+.p-btn.dang { background:#2d1515; color:#fca5a5; border:1px solid #4a1515; }
+.p-rule { font-size:10px; color:#555; margin-top:8px; text-align:center; }
+
+.castelo-marker { background:#c8a84b; color:#111; font-size:11px; font-weight:700; padding:4px 8px; border-radius:4px; border:1px solid #a0842a; white-space:nowrap; }
+.aldeia-label { background:rgba(0,0,0,0.7); color:white; font-size:12px; font-weight:600; padding:3px 8px; border-radius:4px; border:1px solid rgba(255,255,255,0.2); white-space:nowrap; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>A Nossa Aldeia em Óbidos — Várzea da Rainha</h1>
+    <p>Ag. Josefa de Óbidos · TIC 7.º Ano · 3.º Período 2025/26 · Prof. Filomena de Sousa</p>
+  </div>
+  <span id="total-badge">0 / 65 casas concluídas</span>
+</header>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="turma-tabs" id="tabs"></div>
+    <div class="sidebar-inner">
+      <div class="zona-label" id="zona-label">Aldeia A</div>
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+      <div class="prog-labels">
+        <span id="prog-text">0 concluídas · 0 reservadas</span>
+        <span id="prog-pct">0%</span>
+      </div>
+      <div class="lote-grid" id="lote-list"></div>
+    </div>
+    <div class="legenda">
+      <div class="legenda-t">Legenda</div>
+      <div class="legenda-row"><div class="legenda-dot" style="background:#333;border:1px solid #555"></div>Disponível</div>
+      <div class="legenda-row"><div class="legenda-dot" style="background:#c8a84b"></div>Reservado — em construção</div>
+      <div class="legenda-row"><div class="legenda-dot" style="background:#22c55e"></div>Concluído — casa pronta</div>
+      <div class="legenda-row"><div class="legenda-dot" style="background:#c8a84b;border-radius:50%"></div>Castelo de Óbidos</div>
+    </div>
+  </div>
+  <div id="map"></div>
+</div>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbz1j9EqIfKkKdvdC0K6OYsTU-AfJyNzOGrm6BFCre8gvvlT23LjSkMYL8Cjp01HeIQE/exec';
+const CASTELO = [39.3622, -9.1581];
+
+const TURMAS = {
+  A: { cor:'#3b82f6', nome:'Turma A', zona:'Aldeia A — Várzea da Rainha' },
+  B: { cor:'#22c55e', nome:'Turma B', zona:'Aldeia B — Várzea da Rainha' },
+  C: { cor:'#f59e0b', nome:'Turma C', zona:'Aldeia C — Várzea da Rainha' },
+  D: { cor:'#a855f7', nome:'Turma D', zona:'Aldeia D — Várzea da Rainha' },
+  E: { cor:'#ef4444', nome:'Turma E', zona:'Aldeia E — Várzea da Rainha' },
+};
+
+// Várzea da Rainha — zona plana a noroeste do castelo
+// Lote: 300m² ≈ 0.0027° × 0.0027° em lat/lon
+// Casa: 100m² = 1/3 do lote
+// 5 aldeias em fila horizontal, separadas por rua de ~30m
+// Cada aldeia: 13 lotes em grelha 5×3 (5 colunas, 3 linhas, último incompleto)
+
+const LOT_W  = 0.0030;  // largura do lote (~20m)
+const LOT_H  = 0.0018;  // altura do lote (~15m)  → ~300m²
+const GAP_X  = 0.0005;  // rua entre lotes (~4m)
+const GAP_Y  = 0.0005;  // rua entre lotes (~4m)
+const ALDEIA_GAP = 0.0025; // rua entre aldeias (~20m)
+const COLS   = 5;
+
+// Ponto de origem — várzea a norte do castelo
+const ORIG_LAT = 39.3660;
+const ORIG_LON = -9.1790;
+
+// Largura de uma aldeia completa
+const ALDEIA_W = COLS * (LOT_W + GAP_X);
+
+function gerarLotes() {
+  const lotes = {};
+  const turmasArr = Object.keys(TURMAS);
+
+  turmasArr.forEach((t, ti) => {
+    lotes[t] = [];
+    // Offset horizontal de cada aldeia
+    const baselon = ORIG_LON + ti * (ALDEIA_W + ALDEIA_GAP);
+
+    for (let i = 0; i < 13; i++) {
+      const col = i % COLS;
+      const row = Math.floor(i / COLS);
+      const la  = ORIG_LAT - row * (LOT_H + GAP_Y);
+      const lo  = baselon + col * (LOT_W + GAP_X);
+
+      lotes[t].push({
+        id: `${t}-${i+1}`, turma: t, num: i+1,
+        coords: [[la, lo],[la, lo+LOT_W],[la-LOT_H, lo+LOT_W],[la-LOT_H, lo]],
+        reservado: false, par: null, concluido: false,
+      });
+    }
+  });
+  return lotes;
+}
+
+const LOTES = gerarLotes();
+let turmaAtiva = 'A';
+const polyMap = {};
+
+const map = L.map('map', {zoomControl:true}).setView([39.3640, -9.1680], 16);
+
+const sateliteGoogle = L.tileLayer(
+  'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+  {attribution:'© Google', maxZoom:21}
+).addTo(map);
+
+const hibridoGoogle = L.tileLayer(
+  'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+  {attribution:'© Google', maxZoom:21}
+);
+const osm = L.tileLayer(
+  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {attribution:'© OpenStreetMap', maxZoom:19}
+);
+
+L.control.layers(
+  {'Satélite Google':sateliteGoogle,'Satélite + ruas':hibridoGoogle,'Mapa de ruas':osm},
+  {},{position:'topright'}
+).addTo(map);
+
+// Castelo
+const casteloIcon = L.divIcon({
+  html:'<div class="castelo-marker">🏰 Castelo de Óbidos</div>',
+  className:'', iconAnchor:[80,10]
+});
+L.marker(CASTELO, {icon:casteloIcon, zIndexOffset:1000}).addTo(map);
+
+function corLote(l) {
+  if(l.concluido) return '#22c55e';
+  if(l.reservado) return '#c8a84b';
+  return TURMAS[l.turma].cor;
+}
+
+function redesenhar() {
+  Object.values(polyMap).forEach(({poly,marker})=>{map.removeLayer(poly);map.removeLayer(marker);});
+  for(const k in polyMap) delete polyMap[k];
+
+  // Labels das aldeias
+  Object.keys(TURMAS).forEach((t,ti) => {
+    const baselon = ORIG_LON + ti*(ALDEIA_W+ALDEIA_GAP);
+    const centrlon = baselon + ALDEIA_W/2;
+    const icon = L.divIcon({
+      html:`<div class="aldeia-label" style="color:${TURMAS[t].cor}">Aldeia ${t}</div>`,
+      className:'', iconAnchor:[35,10]
+    });
+    L.marker([ORIG_LAT+0.0008, centrlon], {icon, interactive:false, zIndexOffset:500}).addTo(map);
+  });
+
+  for(const t of Object.keys(TURMAS)) {
+    for(const lote of LOTES[t]) {
+      const cor = corLote(lote);
+      const isAtiva = turmaAtiva==='ALL' || lote.turma===turmaAtiva;
+      const poly = L.polygon(lote.coords, {
+        color: cor, weight: isAtiva ? 2 : 1,
+        fillColor: cor,
+        fillOpacity: lote.concluido ? 0.7 : lote.reservado ? 0.6 : isAtiva ? 0.35 : 0.12,
+        dashArray: isAtiva ? null : '4,4',
+      }).addTo(map);
+
+      const centro = poly.getBounds().getCenter();
+      const icon = L.divIcon({
+        html: isAtiva ? `<div style="font-size:11px;font-weight:700;color:white;text-shadow:0 1px 4px rgba(0,0,0,0.9);text-align:center;pointer-events:none;">${lote.num}${lote.concluido?' ✓':lote.reservado?' 🔒':''}</div>` : '',
+        className:'', iconSize:[30,18], iconAnchor:[15,9]
+      });
+      const marker = L.marker(centro, {icon, interactive:false}).addTo(map);
+      poly.on('click', ()=>abrirPopup(lote, poly));
+      polyMap[lote.id] = {poly, marker};
+    }
+  }
+}
+
+function abrirPopup(lote, poly) {
+  const cor = TURMAS[lote.turma].cor;
+  const lid = lote.id.replace('-','_');
+  let conteudo;
+  if(lote.concluido) {
+    conteudo = `
+      <div class="p-status" style="color:#22c55e;font-weight:500;">✓ Casa concluída!</div>
+      <div class="p-par-box"><strong>Par</strong>${lote.par[0]} &amp; ${lote.par[1]}</div>
+      <button class="p-btn dang" onclick="window._libertar('${lote.id}')">Libertar lote</button>`;
+  } else if(lote.reservado) {
+    conteudo = `
+      <div class="p-status" style="color:#c8a84b;font-weight:500;">🔒 Em construção no Tinkercad</div>
+      <div class="p-par-box"><strong>Par</strong>${lote.par[0]} &amp; ${lote.par[1]}</div>
+      <button class="p-btn suc" onclick="window._concluir('${lote.id}')">Marcar como concluída ✓</button>
+      <button class="p-btn dang" onclick="window._libertar('${lote.id}')">Libertar lote</button>`;
+  } else {
+    conteudo = `
+      <div class="p-status" style="color:#666;">Disponível — reserva este lote</div>
+      <input class="p-inp" id="n1_${lid}" placeholder="Nome do aluno 1"/>
+      <input class="p-inp" id="n2_${lid}" placeholder="Nome do aluno 2"/>
+      <button class="p-btn prim" onclick="window._reservar('${lote.id}','${lid}')">Reservar este lote</button>
+      <div class="p-rule">Lote 300m² · Casa máx. 100m² (75% do lote)</div>`;
+  }
+
+  L.popup({maxWidth:280, closeButton:true})
+    .setLatLng(poly.getBounds().getCenter())
+    .setContent(`<div>
+      <div class="p-head">
+        <div class="p-num" style="background:${cor}">${lote.num}</div>
+        <div>
+          <div class="p-title">Lote ${lote.num} — ${TURMAS[lote.turma].nome}</div>
+          <div class="p-sub">${TURMAS[lote.turma].zona}</div>
+        </div>
+      </div>
+      ${conteudo}
+    </div>`)
+    .openOn(map);
+}
+
+window._reservar = (id, lid) => {
+  const [t,n] = id.split('-');
+  const lote = LOTES[t][+n-1];
+  const n1 = document.getElementById('n1_'+lid)?.value.trim();
+  const n2 = document.getElementById('n2_'+lid)?.value.trim();
+  if(!n1||!n2){alert('Preenche os dois nomes!');return;}
+  lote.reservado=true; lote.par=[n1,n2];
+  map.closePopup(); saveState(lote); redesenhar(); atualizarSidebar(); atualizarTotal();
+};
+window._concluir = (id) => {
+  const [t,n] = id.split('-');
+  LOTES[t][+n-1].concluido=true;
+  map.closePopup(); saveState(LOTES[t][+n-1]); redesenhar(); atualizarSidebar(); atualizarTotal();
+};
+window._libertar = (id) => {
+  const [t,n] = id.split('-');
+  const l=LOTES[t][+n-1]; l.reservado=false; l.concluido=false; l.par=null;
+  map.closePopup(); saveState(l); redesenhar(); atualizarSidebar(); atualizarTotal();
+};
+
+async function carregarDoSheets() {
+  try {
+    const res = await fetch(API_URL);
+    const json = await res.json();
+    if(!json.ok) return;
+    for(const row of json.data) {
+      const t=row.turma, n=parseInt(row.lote);
+      if(LOTES[t]&&LOTES[t][n-1]) {
+        const lote=LOTES[t][n-1];
+        lote.reservado = row.reservado==='TRUE'||row.reservado===true;
+        lote.concluido = row.concluido==='TRUE'||row.concluido===true;
+        lote.par = (row.nome1&&row.nome2)?[row.nome1,row.nome2]:null;
+      }
+    }
+    redesenhar(); atualizarSidebar(); atualizarTotal();
+  } catch(e){console.error('Erro Sheets:',e);}
+}
+
+async function saveState(lote) {
+  try {
+    const params = new URLSearchParams({
+      action:'save', turma:lote.turma, lote:lote.num,
+      nome1:lote.par?lote.par[0]:'', nome2:lote.par?lote.par[1]:'',
+      reservado:lote.reservado, concluido:lote.concluido,
+    });
+    await fetch(API_URL+'?'+params.toString());
+  } catch(e){console.error('Erro save:',e);}
+}
+
+function buildTabs() {
+  const tabs = document.getElementById('tabs');
+  tabs.innerHTML = Object.keys(TURMAS).map(t=>`
+    <button class="turma-tab${t==='A'?' active':''}" style="color:${TURMAS[t].cor}"
+      onclick="mudarTurma('${t}',this)">7.º${t}</button>
+  `).join('');
+}
+
+function atualizarSidebar() {
+  const t=turmaAtiva, lotes=LOTES[t];
+  const conc=lotes.filter(l=>l.concluido).length;
+  const res=lotes.filter(l=>l.reservado&&!l.concluido).length;
+  const pct=Math.round(conc/13*100);
+  const cor=TURMAS[t].cor;
+  document.getElementById('zona-label').textContent=TURMAS[t].zona;
+  document.getElementById('prog-fill').style.cssText=`width:${pct}%;background:${cor}`;
+  document.getElementById('prog-text').textContent=`${conc} concluídas · ${res} reservadas`;
+  document.getElementById('prog-pct').textContent=pct+'%';
+  document.getElementById('lote-list').innerHTML=lotes.map(l=>{
+    const cls=l.concluido?'concluido':l.reservado?'reservado':'';
+    const ic=l.concluido?'✓':l.reservado?'🔒':'';
+    const sub=l.par?`${l.par[0]} & ${l.par[1]}`:'Disponível';
+    return `<div class="lote-row ${cls}" onclick="focar('${l.id}')">
+      <div class="lote-dot" style="background:${corLote(l)}">${l.num}</div>
+      <div class="lote-info"><div class="lote-n">Lote ${l.num}</div><div class="lote-s">${sub}</div></div>
+      <div class="lote-ic">${ic}</div>
+    </div>`;
+  }).join('');
+}
+
+function atualizarTotal() {
+  const n=Object.values(LOTES).flat().filter(l=>l.concluido).length;
+  document.getElementById('total-badge').textContent=`${n} / 65 casas concluídas`;
+}
+
+function mudarTurma(t, btn) {
+  turmaAtiva=t;
+  document.querySelectorAll('.turma-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  redesenhar(); atualizarSidebar();
+  const coords=LOTES[t].map(l=>l.coords).flat();
+  map.fitBounds(coords,{padding:[60,60],maxZoom:19});
+}
+
+function focar(id) {
+  const [t,n]=id.split('-');
+  const lote=LOTES[t][+n-1];
+  const {poly}=polyMap[id]||{};
+  if(poly){map.fitBounds(poly.getBounds(),{maxZoom:20,padding:[40,40]});setTimeout(()=>abrirPopup(lote,poly),400);}
+}
+
+// Init
+buildTabs();
+redesenhar();
+atualizarSidebar();
+atualizarTotal();
+carregarDoSheets();
+setInterval(carregarDoSheets, 30000);
+
+// Zoom inicial para mostrar todas as aldeias + castelo
+const todasCoords = Object.values(LOTES).flat().map(l=>l.coords).flat();
+map.fitBounds([...todasCoords, CASTELO],{padding:[60,60],maxZoom:17});
+</script>
+</body>
+</html>
